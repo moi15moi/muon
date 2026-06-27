@@ -73,4 +73,9 @@ if platform == 'posix'
         deps += cc.find_library('socket')
         deps += cc.find_library('nsl')
     endif
+
+    if host_machine.system() == 'linux'
+        # clock_gettime() lived in librt before glibc 2.17 (e.g. CentOS <= 6)
+        deps += cc.find_library('rt', required: false)
+    endif
 endif
