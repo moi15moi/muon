@@ -59,16 +59,22 @@ jobs:
 
       - name: Bootstrap
         run: |
+          extra_args=
           case "${{ matrix.os_image }}" in
             openbsd)
               export CC=cc
+              # OpenBSD's curl port only ships a static libcurl.a here,
+              # and without -Dstatic=true muon's pkg-config queries omit
+              # Libs.private, leaving openssl/ngtcp2/nghttp3 symbols
+              # undefined at link time.
+              extra_args=-Dlibcurl=disabled
               ;;
             haiku|omnios)
               export CC=gcc
               ;;
           esac
           ./bootstrap.sh build
-          build/muon-bootstrap -v build build
+          build/muon-bootstrap -v build $extra_args build
 
       - name: Test
         run: |
