@@ -38,4 +38,10 @@ stdout = run_command(
     env: env,
 ).stdout().strip()
 
-assert(stdout == '5')
+# FreeBSD's /bin/sh strips a leading '--' before assigning $0 in `-c` mode,
+# so it only sees 4 positional arguments instead of 5.
+if host_machine.system() == 'freebsd'
+    assert(stdout == '4')
+else
+    assert(stdout == '5')
+endif
