@@ -79,4 +79,13 @@ jobs:
       - name: Test
         run: |
           cd build
-          ./muon test -d dots
+          extra_args=
+          case "${{ matrix.os_image }}" in
+            haiku)
+              # haiku runs noticeably slower under qemu, so some of the
+              # heavier tests (recursive linking, function attributes, ...)
+              # need more time to avoid spurious timeouts
+              extra_args="-t 3"
+              ;;
+          esac
+          ./muon test -d dots $extra_args
