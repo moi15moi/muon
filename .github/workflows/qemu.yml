@@ -57,24 +57,28 @@ jobs:
               ;;
           esac
 
-      # TEMPORARY: installing nasm on the other qemu images to check whether
-      # the "nasm/2 asm language" test (which makes raw Linux syscalls) also
-      # fails on them, not just on haiku.
-      - name: Install nasm
+      # TEMPORARY: installing nasm and git on the other qemu images to check
+      # whether the "nasm/2 asm language" test (which makes raw Linux
+      # syscalls) also fails on them, not just on haiku. git is required too
+      # since meson-tests.wrap is a wrap-git and the meson-tests subproject
+      # (which the "common/*" and "nasm/*" project tests live in) is silently
+      # skipped without it: "meson-tests not found, no tests from meson will
+      # be run".
+      - name: Install nasm and git
         run: |
           case "${{ matrix.os_image }}" in
             netbsd)
-              sudo pkgin -y install nasm
+              sudo pkgin -y install nasm git
               ;;
             freebsd)
-              sudo pkg install -y nasm
+              sudo pkg install -y nasm git
               ;;
             openbsd)
-              sudo pkg_add nasm
+              sudo pkg_add nasm git
               ;;
             omnios)
               sudo pkg install --deny-new-be --no-backup-be \
-                pkg:/developer/nasm
+                pkg:/developer/nasm pkg:/developer/versioning/git
               ;;
           esac
 
