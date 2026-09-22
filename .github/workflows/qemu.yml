@@ -57,6 +57,35 @@ jobs:
               ;;
           esac
 
+      # TEMPORARY: installing nasm on the other qemu images to check whether
+      # the "nasm/2 asm language" test (which makes raw Linux syscalls) also
+      # fails on them, not just on haiku.
+      - name: Install nasm
+        run: |
+          case "${{ matrix.os_image }}" in
+            netbsd)
+              sudo pkgin -y install nasm
+              ;;
+            freebsd)
+              sudo pkg install -y nasm
+              ;;
+            openbsd)
+              sudo pkg_add nasm
+              ;;
+            omnios)
+              sudo pkg install --deny-new-be --no-backup-be \
+                pkg:/developer/nasm
+              ;;
+          esac
+
+      - name: Print pkg-config version
+        run: |
+          case "${{ matrix.os_image }}" in
+            haiku)
+              pkg-config --version
+              ;;
+          esac
+
       - name: Bootstrap
         run: |
           extra_args=
