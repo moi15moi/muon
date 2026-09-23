@@ -134,7 +134,15 @@ toolchain.register_linker(
             return ['--out-implib,' + s1]
         endfunc,
         'implib_suffix': ['.dll.a'],
-        'no_undefined': ['--no-undefined'],
+        'no_undefined': func(c compiler) -> list[str]
+            if c.machine().system() == 'openbsd'
+                # OpenBSD's compiler driver doesn't link libc into shared
+                # libraries, so --no-undefined would reject every use of libc.
+                # meson doesn't offer b_lundef on OpenBSD for the same reason.
+                return []
+            endif
+            return ['--no-undefined']
+        endfunc,
         'pgo': func(_c compiler, stage str) -> list[str]
             if stage == 'generate'
                 return ['-fprofile-generate']
