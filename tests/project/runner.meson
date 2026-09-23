@@ -142,6 +142,12 @@ steps.check_install = func()
             # to match Haiku's pkg-config search path convention, see
             # module_pkgconfig_generate() in src/functions/modules/pkgconfig.c
             path = path.replace('/lib/pkgconfig/', '/develop/lib/pkgconfig/')
+        elif host_machine.system() == 'freebsd'
+            # On FreeBSD, pkgconfig.generate() installs non-dataonly .pc files
+            # under $prefix/libdata/pkgconfig instead of $libdir/pkgconfig
+            # to match FreeBSD's pkg-config search path convention, see
+            # module_pkgconfig_generate() in src/functions/modules/pkgconfig.c
+            path = path.replace('/lib/pkgconfig/', '/libdata/pkgconfig/')
         endif
 
         if 'platform' in f
