@@ -377,6 +377,10 @@ typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, typ
 	if (ct == complex_type_preset) {
 		return typecheck_complex_type(wk, got_obj, got_type, complex_type_preset_get(wk, idx));
 	} else if (ct == complex_type_enum) {
+		if (got_type == tc_string) {
+			obj values = idx;
+			return obj_array_in(wk, values, got_obj);
+		}
 		return typecheck_complex_type(wk, got_obj, got_type, tc_string);
 	}
 
@@ -622,6 +626,10 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 		tag = make_complex_type(wk, complex_type_nested, tc_dict, tc_string);
 		break;
 	}
+	case tc_cx_dict_of_listify_str: {
+		tag = make_complex_type(wk, complex_type_nested, tc_dict, TYPE_TAG_LISTIFY| tc_string);
+		break;
+	}
 	case tc_cx_override_find_program: {
 		tag = make_complex_type(wk,
 			complex_type_or,
@@ -640,6 +648,18 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 					complex_type_or,
 					tc_bool,
 					complex_type_preset_get(wk, tc_cx_list_of_str))));
+		break;
+	}
+	case tc_cx_coercible_env_base: {
+		tag = make_complex_type(wk,
+			complex_type_or,
+			TYPE_TAG_LISTIFY | tc_string,
+			complex_type_preset_get(wk, tc_cx_dict_of_listify_str));
+		break;
+	}
+	case tc_cx_coercible_env: {
+		tag = make_complex_type(
+			wk, complex_type_or, tc_environment, complex_type_preset_get(wk, tc_cx_coercible_env_base));
 		break;
 	}
 	default: UNREACHABLE;
@@ -684,6 +704,13 @@ typecheck_closure_type_to_s(struct workspace *wk,
 			obj_array_push(wk, expected, typechecking_type_to_str(wk, sig->an[i].type));
 		}
 	}
+	if (sig->akw) {
+		for (uint32_t i = 0; sig->akw[i].key; ++i) {
+			obj_array_push(wk,
+				expected,
+				make_strf(wk, "%s %s:", sig->akw[i].key, typechecking_type_to_s(wk, sig->akw[i].type)));
+		}
+	}
 
 	obj joined;
 	obj_array_join(wk, false, expected, make_str(wk, ", "), &joined);
@@ -723,8 +750,13 @@ typecheck_closure(struct workspace *wk,
 	}
 
 	if (sig->akw) {
-		vm_error_at(wk, ip, "kwarg typechecking not currently supported");
-		return false;
+		// kwargs accepted
+		if (strcmp(sig->akw[0].key, "kwargs") == 0 && !sig->akw[1].key) {
+			// special case having a single kwarg `kwargs` as an escape hatch for now
+		} else {
+			vm_error_at(wk, ip, "kwarg typechecking not currently supported");
+			return false;
+		}
 	} else if (fn->nkwargs) {
 		// no kwargs accepted
 		goto type_err;

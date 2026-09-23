@@ -103,6 +103,13 @@ bool
 fs_exe_exists(struct workspace *wk, const char *path)
 {
 	struct stat sb;
+
+#ifdef __HAIKU__
+	if (0 == strcmp(path, "/usr/bin/env")) {
+		return true;
+	}
+#endif
+
 	if (access(path, X_OK) != 0) {
 		return false;
 	} else if (!fs_stat(path, &sb)) {
@@ -430,6 +437,12 @@ fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd)
 	assert(*cmd);
 	uint32_t len;
 	const char *env_path, *base_start;
+
+#ifdef __HAIKU__
+	if (0 == strcmp(cmd, "/usr/bin/env")) {
+		cmd = "/bin/env";
+	}
+#endif
 
 	tstr_clear(buf);
 

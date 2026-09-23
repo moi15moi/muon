@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: qemu
+
+on:
+  push:
+    branches:
+      - master
+      - '[0-9]+.[0-9]+'
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  QEMU_VMs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: cpa.sh {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_image: netbsd
+            version: "11.0"
+
+          - os_image: freebsd
+            version: "15.1"
+
+          - os_image: openbsd
+            version: "7.9"
+
+          - os_image: haiku
+            version: "r1beta6"
+
+          - os_image: omnios
+            version: "r151058"
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@master
+
+      - name: Start VM on ${{ matrix.os_image }}
+        uses: cross-platform-actions/action@v1.6.0
+        with:
+          operating_system: ${{ matrix.os_image }}
+          version: ${{ matrix.version }}
+
+      - name: Install compiler
+        run: |
+          case "${{ matrix.os_image }}" in
+            omnios)
+              sudo pkg install --deny-new-be --no-backup-be \
+                pkg:/developer/gcc14
+              ;;
+          esac
+
+      # TEMPORARY: installing nasm and git on the other qemu images to check
+      # whether the "nasm/2 asm language" test (which makes raw Linux
+      # syscalls) also fails on them, not just on haiku. git is required too
+      # since meson-tests.wrap is a wrap-git and the meson-tests subproject
+      # (which the "common/*" and "nasm/*" project tests live in) is silently
+      # skipped without it: "meson-tests not found, no tests from meson will
+      # be run".
+      - name: Install nasm and git
+        run: |
+          case "${{ matrix.os_image }}" in
+            netbsd)
+              sudo pkgin -y install nasm git
+              ;;
+            freebsd)
+              sudo pkg install -y nasm git
+              ;;
+            openbsd)
+              sudo pkg_add nasm git
+              ;;
+            omnios)
+              sudo pkg install --deny-new-be --no-backup-be \
+                pkg:/developer/nasm pkg:/developer/versioning/git
+              ;;
+          esac
+
+      - name: Print pkg-config version
+        run: |
+          case "${{ matrix.os_image }}" in
+            haiku)
+              pkg-config --version
+              ;;
+          esac
+
+      - name: Bootstrap
+        run: |
+          extra_args=
+          case "${{ matrix.os_image }}" in
+            openbsd)
+              export CC=cc
+              # OpenBSD's curl port only ships a static libcurl.a here,
+              # and without -Dstatic=true muon's pkg-config queries omit
+              # Libs.private, leaving openssl/ngtcp2/nghttp3 symbols
+              # undefined at link time.
+              extra_args=-Dlibcurl=disabled
+              ;;
+            haiku|omnios)
+              export CC=gcc
+              ;;
+          esac
+          ./bootstrap.sh build
+          build/muon-bootstrap -v build $extra_args build
+
+      - name: Test
+        run: |
+          cd build
+          extra_args=
+          case "${{ matrix.os_image }}" in
+            haiku)
+              # haiku runs noticeably slower under qemu, so some of the
+              # heavier tests (recursive linking, function attributes, ...)
+              # need more time to avoid spurious timeouts
+              extra_args="-t 3"
+              ;;
+          esac
+          ./muon test -d dots $extra_args
