@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-name: haiku
+name: BSD
 
 on:
   push:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  haiku:
+  BSD:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,8 +25,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os_image: haiku
-            version: r1beta6
+          - os_image: openbsd
+            version: "7.9"
     steps:
       - name: checkout
         uses: actions/checkout@master
@@ -38,15 +38,30 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: install dependencies
-        run: pkgman install -y curl_devel libarchive_devel nasm git
+        run: |
+          case "${{ matrix.os_image }}" in
+            openbsd)
+              sudo pkg_add nasm git
+              ;;
+          esac
 
       - name: bootstrap
         run: |
-          export CC=gcc
+          extra_args=
+          case "${{ matrix.os_image }}" in
+            openbsd)
+              export CC=cc
+              # OpenBSD's curl port only ships a static libcurl.a here,
+              # and without -Dstatic=true muon's pkg-config queries omit
+              # Libs.private, leaving openssl/ngtcp2/nghttp3 symbols
+              # undefined at link time.
+              extra_args=-Dlibcurl=disabled
+              ;;
+          esac
           ./bootstrap.sh build
-          build/muon-bootstrap -v build build
+          build/muon-bootstrap -v build $extra_args build
 
       - name: test
         run: |
           cd build
-          ./muon test -d dots -t 3
+          ./muon test -d dots
