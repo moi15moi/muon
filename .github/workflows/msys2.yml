@@ -44,6 +44,7 @@ jobs:
           pkgconf:p
           curl:p
           libarchive:p
+          cmake:p
     - name: 'Build'
       run: |
         CC="${{ matrix.cc }} -std=c99"  ./bootstrap.sh build
